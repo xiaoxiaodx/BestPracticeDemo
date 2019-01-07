@@ -1,4 +1,4 @@
-1、编译环境 在unbuntu 下(在windows下没有试过),ndk版本使用最新就行，我自己的是在android studio下载的。
+1、编译环境 在unbuntu 下(在windows下有个需要找ndk版本的错误，linux下则没有),ndk版本使用最新就行，我自己的是在android studio下载的。
 
 2、接下来按照官方的提示步骤：
 	一：使用命令行，进入ceres-solver-XXXX 目录下 输入 ndk-build，
@@ -13,6 +13,15 @@
 			.
 			.
 	语句下是否把头文件包含进来了，没有意外的话，这个时候应该会生存一个静态库libceres.a(在jni同目录下的object文件夹中)。
+	特别要注意的是：
+		在.mk文件有个配置选项，是一些编译的依赖选项，在solver.cc中会检查这几个标志是否定义，最后3个稀疏线性代数库，需要选中一个：
+			LOCAL_CFLAGS := $(CERES_EXTRA_DEFINES) \	#
+		        -DCERES_NO_LAPACK \				#
+			-DCERES_STD_UNORDERED_MAP \			#
+		        -DCERES_NO_SUITESPARSE \			# 不编译使用	SuiteSparse 
+			-DCERES_NO_CXSPARSE \				# 不编译使用	CXSparse 
+			-DCERES_USE_EIGEN_SPARSE \			# 编译使用	EIGEN_SPARSE
+	
 	二：接下来我们使用这个静态库（要在安卓使用，还需要把静态库打包成动态库）
 	1、新建一个文件夹随便取个名字（接下来都将在这个文件下进行动态库的打包），
 	2、进入该文件，新建一个jni文件（方便使用ndk-build,该文件也是放置你自己编写的cpp代码），将静态库拷贝进来，同时
@@ -67,7 +76,7 @@
 	}
 
 	如果你的头文件都包含了的话，那么就不会有提示找不到某某文之类的错误，在进行 ndk-build的 这时候 你可能会报这个错误： error: One of CERES_USE_OPENMP,
-      CERES_USE_TBB,CERES_USE_CXX11_THREADS or CERES_NO_THREADS must be defined.
+        CERES_USE_TBB,CERES_USE_CXX11_THREADS or CERES_NO_THREADS must be defined.
 
 	这个错误我是在config.h 这个文件里面新增了一句：
 		#define CERES_USE_CXX11_THREADS
@@ -75,6 +84,28 @@
 	
 	到此基本上动态库也就可以生成了。如果需要在安卓中使用，还需要使用jni进行调用（这块自己解决）
 	
-	在继续编译会出现与线程相关的错误，在网上找了很久才发现 原来是文件缺少导致的（只有极个别的版本才会出现这在情况），把缺失的文件添加上然后在从新编译静态库.
-	
+	在继续编译会出现与线程相关的错误，在网上找了很久才发现 原来是文件缺少导致的（只有极个别的版本才会出现这在情况），出现这个问题可以先尝试从 ceres-solver-XXXX/internal/ceres/ 目录下
+	查找下是不是没有将文件添加进编译，我的就是把 thread_token_provider.cc 重新添加进去了，就是在 Android.mk 	LOCAL_SRC_FILES 中
+	LOCAL_SRC_FILES := $(CERES_SRC_PATH)/array_utils.cc \
+                   $(CERES_SRC_PATH)/blas.cc \
+                   $(CERES_SRC_PATH)/block_evaluate_preparer.cc \
+                   $(CERES_SRC_PATH)/block_jacobian_writer.cc \
+              		.
+			.
+			.
+		  $(CERES_SRC_PATH)/thread_token_provider.cc
 
+	把缺失的文件添加上然后在从新编译静态库.
+
+
+	minilog 的用法：
+	VLOG(2) << "******************************************** ";//括号里面的数字意义如下：
+		//   2 - Verbose
+		//   1 - Debug
+		//   0 - Info
+		//  -1 - Warning
+		//  -2 - Error
+		//  -3 - Fatal
+	三：使用动态库
+		在使用动态库的时候需要避免使用线程，因为在打包静态库的时候，把线程关了，如需开启的话自己可以去研究下。
+	如果使用了线程则有可能报Fatal signal 11 (SIGSEGV)	

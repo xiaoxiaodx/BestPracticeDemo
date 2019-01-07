@@ -109,7 +109,8 @@ LOCAL_CFLAGS := $(CERES_EXTRA_DEFINES) \
                 -DCERES_NO_LAPACK \
                 -DCERES_NO_SUITESPARSE \
                 -DCERES_NO_CXSPARSE \
-                -DCERES_STD_UNORDERED_MAP
+                -DCERES_STD_UNORDERED_MAP \
+		-DCERES_USE_EIGEN_SPARSE \
 
 
 # If the user did not enable threads in CERES_EXTRA_DEFINES, then add
